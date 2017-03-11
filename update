@@ -1,0 +1,41 @@
+#!/usr/bin/env ruby
+
+def check_useless_merge
+  puts "[POLICY] Check useless merge"
+
+  if $newrev == $zero
+    # deleted branch
+    return
+  end
+
+  if $newrev == $zero || $oldrev == $zero || `git cat-file -t #{$newrev}`.chomp != "commit" || `git merge-base #{$oldrev} #{$newrev}`.chomp != $oldrev
+    return
+  end
+
+  commits = `git rev-list --first-parent --reverse #{$oldrev}..#{$newrev}`.chomp
+  if commits.empty?
+    return
+  end
+
+  first_commit = commits.split("\n").first
+  if first_commit.empty?
+    return
+  end
+
+  parent = `git rev-parse --verify #{first_commit}^1`.chomp
+  if parent != $oldrev
+    puts "[POLICY] You should remove useless merge!"
+    exit 1
+  end
+
+  puts "[POLICY] Good, there is no useless merge!"
+end
+
+$refname = ARGV[0]
+$oldrev  = ARGV[1]
+$newrev  = ARGV[2]
+$zero    = '0000000000000000000000000000000000000000'
+
+puts "Enforcing Policies..."
+puts "(#{$refname}) (#{$oldrev[0,6]}) (#{$newrev[0,6]})"
+check_useless_merge
